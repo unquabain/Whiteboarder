@@ -141,36 +141,78 @@ class Camera(object):
 		context = self.context
 		context.new_path()
 
+		context.set_source_rgb(*brush.color)
+		context.set_line_width(brush.scale * self.matrix[0][0])
 		if len(points) == 4:
-			d = dist(points[1], points[2])
+			d1 = dist(points[0], points[1])
+			d2 = dist(points[1], points[2])
+			d3 = dist(points[2], points[3])
 
 			s1 = slope(points[0], points[1])
-			s2 = slope(points[2], points[3])
+			s2 = slope(points[1], points[2])
+			s3 = slope(points[2], points[3])
 
 			if math.isnan(s1):
 				a1 = Radian(0.)
 			elif math.isinf(s1):
-				a1 = Radian(math.pi/2.)
+				a1 = Radian(math.pi/2.) * sign(s1)
 			else:
 				a1 = Radian.arctan(s1)
+			if points[1][1] > points[0][1]:
+				a1 = Radian(a1 + math.pi)
 
 			if math.isnan(s2):
 				a2 = Radian(0.)
 			elif math.isinf(s2):
-				a2 = Radian(math.pi/2.)
+				a2 = Radian(math.pi/2.) * sign(s2)
 			else:
 				a2 = Radian.arctan(s2)
+			if points[2][1] > points[1][1]:
+				a2 = Radian(a2 + math.pi)
 
+			if math.isnan(s3):
+				a3 = Radian(0.)
+			elif math.isinf(s3):
+				a3 = Radian(math.pi/2.) * sign(s3)
+			else:
+				a3 = Radian.arctan(s3)
+			if points[3][1] > points[2][1]:
+				a3 = Radian(a3 + math.pi)
+
+			aa1 = Radian(((a1 * d1)+(a2*d2))/(d1+d2))
+			d2d1 = sign(
+				points[2][0] - points[1][0]
+			) * sign(
+				points[1][1] - points[2][1]
+			) * (sign(s1)*sign(s3))
+
+			if d2d1 == 0:
+				d2d1 = 0
+				context.set_source_rgb(0, 255, 0)
+
+			aa2 = Radian(((a2 * d2)+(a3*d3))/(d2+d3))
+			cp1 = ( points[1][0] + d2d1*aa1.cos()*d2/3., points[1][1] + d2d1*aa1.sin()*d2/3. )
+			cp2 = ( points[2][0] - d2d1*aa2.cos()*d2/3., points[2][1] - d2d1*aa2.sin()*d2/3. )
+
+			if sign(aa2)*sign(aa1) <= 0:
+				context.set_source_rgb(255,0,0)
+				context.move_to(*(points[1]))
+				context.line_to(*(points[2]))
+			else:
 			
-			cp1 = ( a1.cos()*d/2. + points[1][0], a1.sin()*d/2. + points[1][1] )
-			cp2 = ( points[2][0] - a2.cos()*d/2., points[2][1] - a1.sin()*d/2. )
-			context.move_to(*(points[1]))
-			context.curve_to(*( coord for p in ( cp1, cp2, points[2] ) for coord in p ))
+				context.move_to(*(points[1]))
+				context.curve_to(*( coord for p in ( cp1, cp2, points[2] ) for coord in p ))
 
-		scale = self.point_in( ( brush.scale*1.41, brush.scale*1.41 ) )
+				context.stroke()
 
-		context.set_source_rgb(*brush.color)
-		context.stroke()
+				context.new_path()
+				context.move_to(*points[1])
+				context.line_to(*cp1)
+				context.move_to(*points[2])
+				context.line_to(*cp2)
+				context.set_source_rgb(255, 0, 0)
+				context.set_line_width(1.5)
+			context.stroke()
 
 
 		# self.dirty_rectangles.append( pygame.draw.line(self.screen, brush.color, p1, p2, brush.scale).inflate(scale) )
@@ -195,6 +237,7 @@ class Stroke(object):
 		self.start = datetime.now()
 		self.events = []
 		self.brush = brush
+		self.drawn = 0
 	def record_event(self, pos, pressure=1.0):
 		self.events.append(StrokeEvent( datetime.now() - self.start, pos, pressure ) )
 		return self.events[-1]
@@ -203,6 +246,12 @@ class Stroke(object):
 		for i in range(len(self.events)):
 			points = self.events[i:i+4]
 			camera.draw(self.brush, [ p.pos for p in points ])
+		self.drawn = len(self.events)
+	def draw_current(self, camera):
+		for i in range(self.drawn, len(self.events)):
+			camera.draw(self.brush, [ p.pos for p in self.events[i-4:i] ])
+		self.drawn = len(self.events)
+
 
 class SubBeat(object):
 	def __init__(self, number):
@@ -226,7 +275,7 @@ class SubBeat(object):
 				s.draw(camera)
 	def draw_current(self, camera):
 		if self.current_stroke is not None:
-			self.current_stroke.draw(camera)
+			self.current_stroke.draw_current(camera)
 
 
 
@@ -263,7 +312,7 @@ class Scene(object):
 	def __init__(self):
 		self.beats = []
 		self.camera = Camera()
-		self.brush = Brush( (0, 0, 0), 10, 0.33, Radian(math.pi/4.) )
+		self.brush = Brush( (0, 0, 0), 3, 0.33, Radian(math.pi/4.) )
 		self.current_beat = None
 		self.cached_surface = None
 		self.camera_moved = True
