@@ -136,8 +136,36 @@ class Camera(object):
 	def draw(self, brush, points):
 		points = self.points_in(points)
 
-		dist = lambda l, r : sqrt( (r[0]-l[0])*(r[0]-l[0]) + (r[1]-l[1])*(r[1]-l[1]) )
-		slope = lambda l, r : ( r[1] - l[1] ) / (r[0] - l[0] )
+		def dist(l, r):
+			return sqrt(
+				(r[0]-l[0])*(r[0]-l[0])
+				+
+				(r[1]-l[1])*(r[1]-l[1])
+			)
+		def slope( l, r) :
+			return (
+				( r[1] - l[1] )
+				/
+				(r[0] - l[0] )
+			)
+		def angle( l, r ) :
+			if r[0] == l[0]:
+				a = math.pi/2. 
+				if r[1]<l[1]:
+					a += math.pi
+			elif r[1] == l[1]:
+				a = 2.*math.pi
+			else:
+				a = arctan(slope(l , r))
+			if l[0]>r[0]:
+				a += math.pi
+			if a < 0.:
+				a += 2.0*math.pi
+			elif a > 2.0*math.pi:
+				a -= 2.0*math.pi
+			return Radian(a)
+				
+				
 		context = self.context
 		context.new_path()
 
@@ -148,70 +176,61 @@ class Camera(object):
 			d2 = dist(points[1], points[2])
 			d3 = dist(points[2], points[3])
 
-			s1 = slope(points[0], points[1])
-			s2 = slope(points[1], points[2])
-			s3 = slope(points[2], points[3])
+			a1 = angle(points[0], points[1])
+			a2 = angle(points[1], points[2])
+			a3 = angle(points[2], points[3])
 
-			if math.isnan(s1):
-				a1 = Radian(0.)
-			elif math.isinf(s1):
-				a1 = Radian(math.pi/2.) * sign(s1)
-			else:
-				a1 = Radian.arctan(s1)
-			if points[1][1] > points[0][1]:
-				a1 = Radian(a1 + math.pi)
-
-			if math.isnan(s2):
-				a2 = Radian(0.)
-			elif math.isinf(s2):
-				a2 = Radian(math.pi/2.) * sign(s2)
-			else:
-				a2 = Radian.arctan(s2)
-			if points[2][1] > points[1][1]:
-				a2 = Radian(a2 + math.pi)
-
-			if math.isnan(s3):
-				a3 = Radian(0.)
-			elif math.isinf(s3):
-				a3 = Radian(math.pi/2.) * sign(s3)
-			else:
-				a3 = Radian.arctan(s3)
-			if points[3][1] > points[2][1]:
-				a3 = Radian(a3 + math.pi)
-
+			while abs(a1-a2)>3*math.pi/2.:
+				if a1 < a2:
+					a1 += 2.*math.pi
+				else:
+					a2 += 2.*math.pi
+			while abs(a2-a3)>3*math.pi/2.:
+				if a2 < a3:
+					a2 += 2.*math.pi
+				else:
+					a3 += 2.*math.pi
 			aa1 = Radian(((a1 * d1)+(a2*d2))/(d1+d2))
-			d2d1 = sign(
-				points[2][0] - points[1][0]
-			) * sign(
-				points[1][1] - points[2][1]
-			) * (sign(s1)*sign(s3))
 
-			if d2d1 == 0:
-				d2d1 = 0
-				context.set_source_rgb(0, 255, 0)
 
 			aa2 = Radian(((a2 * d2)+(a3*d3))/(d2+d3))
-			cp1 = ( points[1][0] + d2d1*aa1.cos()*d2/3., points[1][1] + d2d1*aa1.sin()*d2/3. )
-			cp2 = ( points[2][0] - d2d1*aa2.cos()*d2/3., points[2][1] - d2d1*aa2.sin()*d2/3. )
 
-			if sign(aa2)*sign(aa1) <= 0:
-				context.set_source_rgb(255,0,0)
+			if abs(a2-a3)>3*math.pi/2.:
+				aa2 = Radian(math.pi-aa2)
+				context.set_source_rgb(0, 255, 0)
+
+
+			cp1 = ( points[1][0] + aa1.cos()*d2/3., points[1][1] + aa1.sin()*d2/3. )
+			cp2 = ( points[2][0] - aa2.cos()*d2/3., points[2][1] - aa2.sin()*d2/3. )
+
+			args = [ coord for p in ( cp1, cp2, points[2] ) for coord in p ]
+			if reduce(
+				lambda x, y: { True: True, False: x }[math.isnan(y)],
+				args,
+				False
+			):
+				context.set_source_rgb(255, 0, 0)
 				context.move_to(*(points[1]))
 				context.line_to(*(points[2]))
 			else:
 			
 				context.move_to(*(points[1]))
-				context.curve_to(*( coord for p in ( cp1, cp2, points[2] ) for coord in p ))
+				context.curve_to(*args)
 
+				"""
 				context.stroke()
 
+				context.set_line_width(1.5)
 				context.new_path()
 				context.move_to(*points[1])
 				context.line_to(*cp1)
+				context.set_source_rgb(0, 0, 200)
+				context.stroke()
+				context.new_path()
 				context.move_to(*points[2])
 				context.line_to(*cp2)
 				context.set_source_rgb(255, 0, 0)
-				context.set_line_width(1.5)
+				"""
 			context.stroke()
 
 
