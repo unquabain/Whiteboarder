@@ -344,6 +344,7 @@ class Scene(object):
 		self.width = width
 		self.height = height
 
+		self.scale_camera(1.0,1.0)
 		screen = pygame.display.set_mode(size, 0, 32)
 		self.screen = screen
 		pixels = pygame.surfarray.pixels2d(screen)
