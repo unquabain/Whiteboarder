@@ -55,6 +55,7 @@ class Camera(object):
 			[0., 0., 1. ]
 		])
 		self.matrix = dot(self.matrix, mm)
+		print self.matrix
 	def rotate(self, angle):
 		if not isinstance(angle, Angle):
 			angle = Radian(angle)
@@ -80,6 +81,30 @@ class Camera(object):
 		])
 		pt = dot(self.matrix, pm)
 		return pt[0][0], pt[1][0]
+
+	def vector_in(self, vector):
+		mm = array([
+			[ self.matrix[0][0], self.matrix[0][1] ],
+			[ self.matrix[1][0], self.matrix[1][1] ]
+		])
+		pm = array([
+			[vector[0]],
+			[vector[1]]
+		])
+		pt = dot(mm, pm)
+		return pt[0][0], pt[1][0]
+	def vector_out(self, vector):
+		mm = array([
+			[ self.matrix[0][0], self.matrix[0][1] ],
+			[ self.matrix[1][0], self.matrix[1][1] ]
+		])
+		pm = array([
+			[vector[0]],
+			[vector[1]]
+		])
+		pt = dot(inv(mm), pm)
+		return pt[0][0], pt[1][0]
+
 	def points_in(self, points):
 		return [ self.point_in(pp) for pp in points ]
 	def point_out(self, point):
@@ -397,17 +422,18 @@ class Scene(object):
 			pygame.display.update()
 			# pygame.display.update(self.camera.dirty_rectangles)
 	def move_camera(self, delta):
-		# self.camera.move(self.camera.point_in(delta))
-		self.camera.move(delta)
+		self.camera.move(self.camera.vector_out(delta))
+		# self.camera.move(delta)
 		self.camera_moved = True
 	def scale_camera(self, scalex, scaley=None):
 		cx = self.width/2.
 		cy = self.height/2.
-		p = self.camera.point_out((cx, cy))
-		self.camera.move([-c for c in p])
+		p1 = self.camera.point_out((cx, cy))
+		# self.camera.move([-c for c in p])
 		self.camera.scale(scalex, scaley)
-		p = self.camera.point_out((cx, cy))
-		self.camera.move(p)
+		p2 = self.camera.point_out((cx, cy))
+		self.camera.move(( p2[0]-p1[0], p2[1]-p1[1] ))
+		# self.camera.move(p)
 		self.camera_moved = True
 	def rotate_camera(self, angle):
 		self.camera.rotate(angle)
