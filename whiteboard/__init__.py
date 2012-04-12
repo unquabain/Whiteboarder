@@ -5,6 +5,7 @@ import os, sys, pygame
 from pygame.locals import *
 import cairo
 from datetime import datetime, timedelta
+import copy
 class Brush(object):
 	def __init__(self, color, scale, aspect, rotation):
 		self.color = color
@@ -255,7 +256,7 @@ class Stroke(object):
 		self.time = time
 		self.start = datetime.now()
 		self.events = []
-		self.brush = brush
+		self.brush = copy.copy(brush)
 		self.drawn = 0
 	def record_event(self, pos, pressure=1.0):
 		self.events.append(StrokeEvent( datetime.now() - self.start, pos, pressure ) )
