@@ -399,7 +399,13 @@ class Scene(object):
 		self.camera.move(delta)
 		self.camera_moved = True
 	def scale_camera(self, scalex, scaley=None):
+		cx = self.width/2.
+		cy = self.height/2.
+		p = self.camera.point_out((cx, cy))
+		self.camera.move([-c for c in p])
 		self.camera.scale(scalex, scaley)
+		p = self.camera.point_out((cx, cy))
+		self.camera.move(p)
 		self.camera_moved = True
 	def rotate_camera(self, angle):
 		self.camera.rotate(angle)
